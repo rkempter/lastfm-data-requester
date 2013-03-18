@@ -1,18 +1,59 @@
-import csv
+import csv, codecs, cStringIO
 import json
 import requests
 
+class UnicodeWriter:
+    """
+    A CSV writer which will write rows to CSV file "f",
+    which is encoded in the given encoding.
+    """
+
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
+        # Redirect output to a queue
+        self.queue = cStringIO.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+        self.encoder = codecs.getincrementalencoder(encoding)()
+
+    def writerow(self, row):
+        self.writer.writerow([s.encode("utf-8") for s in row])
+        # Fetch UTF-8 output from the queue ...
+        data = self.queue.getvalue()
+        data = data.decode("utf-8")
+        # ... and reencode it into the target encoding
+        data = self.encoder.encode(data)
+        # write to the target stream
+        self.stream.write(data)
+        # empty queue
+        self.queue.truncate(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
+
 api_key = '0a511e37bb65b2d607af9400908654b8'
-parameters = {'method': 'chart.gettopartists', 'api_key': '0a511e37bb65b2d607af9400908654b8', 'format':'json'}
+parameters = {'method': 'chart.gettopartists', 'api_key': '0a511e37bb65b2d607af9400908654b8', 'limit': '3000', 'format':'json'}
 r = requests.get('http://ws.audioscrobbler.com/2.0/?', params=parameters)
 
 data_json = r.text
-
 data = json.loads(data_json)
 
-with open('charts.csv', 'wb') as f:
-    writer = csv.writer(f)
+with open('charts_artists.csv', 'wb') as f:
+    writer = UnicodeWriter(f)
     for artist in data['artists']['artist']:
         writer.writerow([artist["name"],
-                   artist["playcount"],
-                   artist["listeners"]])
+                         artist["playcount"],
+                         artist["listeners"]])
+
+parameters = {'method': 'chart.getTopTracks', 'api_key': '0a511e37bb65b2d607af9400908654b8', 'limit': '3000', 'format':'json'}
+r = requests.get('http://ws.audioscrobbler.com/2.0/?', params=parameters)
+
+data_json = r.text
+data = json.loads(data_json)
+
+with open('charts_track.csv', 'wb') as f:
+    writer = UnicodeWriter(f)
+    for artist in data['tracks']['track']:
+        writer.writerow([artist["name"],
+                         artist["playcount"],
+                         artist["listeners"]])
