@@ -38,9 +38,12 @@ r = requests.get('http://ws.audioscrobbler.com/2.0/?', params=parameters)
 data_json = r.text
 data = json.loads(data_json)
 
+artist_list = []
+
 with open('charts_artists.csv', 'wb') as f:
     writer = UnicodeWriter(f)
     for artist in data['artists']['artist']:
+        artist_list.append(artist["name"])
         writer.writerow([artist["name"],
                          artist["playcount"],
                          artist["listeners"]])
@@ -51,9 +54,32 @@ r = requests.get('http://ws.audioscrobbler.com/2.0/?', params=parameters)
 data_json = r.text
 data = json.loads(data_json)
 
+artists = {}
+
 with open('charts_track.csv', 'wb') as f:
     writer = UnicodeWriter(f)
-    for artist in data['tracks']['track']:
-        writer.writerow([artist["name"],
-                         artist["playcount"],
-                         artist["listeners"]])
+    for track in data['tracks']['track']:
+        artist = track['artist']['name']
+        if artist in artists:
+            artists[artist] = artists[artist] + 1
+        else:
+            artists[artist] = 1
+        writer.writerow([track["name"],
+                         track["playcount"],
+                         track["listeners"]])
+
+# On how many artists the tracks are split?
+
+print "The 1000 tracks are shared by " + repr(len(artists)) + " artists."
+
+# how many of the top 1000 track artists are in the top 1000 artist list?
+
+counter = 0
+
+for i in range(0, len(artist_list)):
+    if artist_list[i] in artists:
+        counter = counter + 1
+
+print "From the top 1000 track artists, " + repr(counter) + " are in the top 1000 artist list."
+
+
